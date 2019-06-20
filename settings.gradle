@@ -7,7 +7,7 @@ pluginManagement {
         }
     }
 }
-rootProject.name = 'Finance'
+rootProject.name = 'sumup_invoice_accounting'
 
 
 enableFeaturePreview('GRADLE_METADATA')
