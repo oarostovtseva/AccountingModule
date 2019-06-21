@@ -1,9 +1,9 @@
-package sample
+package accounting
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-class UtilsTests {
+class MathUtilsTests {
     @Test
     fun testMe() {
         assertEquals(calculate(1, 1), 2)
