@@ -1,15 +1,27 @@
 plugins {
     id 'kotlin-multiplatform' version '1.3.21'
 }
+
 repositories {
     mavenCentral()
 }
-group 'com.example'
-version '0.0.1'
 
 apply plugin: 'maven-publish'
 
+group 'com.sumup'
+version '0.0.1'
+
 kotlin {
+    targets {
+        final def iOSTarget = System.getenv('SDK_NAME')?.startsWith("iphoneos") \
+                              ? presets.iosArm64 : presets.iosX64
+
+        fromPreset(iOSTarget, 'iOS') {
+            compilations.main.outputKinds('FRAMEWORK')
+        }
+
+        fromPreset(presets.jvm, 'android')
+    }
     sourceSets {
         commonMain {
             dependencies {
@@ -18,9 +30,55 @@ kotlin {
         }
         commonTest {
             dependencies {
+                implementation kotlin('stdlib-common')
                 implementation kotlin('test-common')
                 implementation kotlin('test-annotations-common')
             }
         }
     }
 }
+
+task packForXCode(type: Sync) {
+    final File frameworkDir = new File(buildDir, "xcode-frameworks")
+    final String mode = project.findProperty("XCODE_CONFIGURATION")?.toUpperCase() ?: 'DEBUG'
+
+    inputs.property "mode", mode
+    dependsOn kotlin.targets.iOS.compilations.main.linkTaskName("FRAMEWORK", mode)
+
+    from { kotlin.targets.iOS.compilations.main.getBinary("FRAMEWORK", mode).parentFile }
+    into frameworkDir
+
+    doLast {
+        new File(frameworkDir, 'gradlew').with {
+            text = "#!/bin/bash\nexport 'JAVA_HOME=${System.getProperty("java.home")}'\ncd '${rootProject.rootDir}'\n./gradlew \$@\n"
+            setExecutable(true)
+        }
+    }
+}
+
+tasks.build.dependsOn packForXCode
+
+// This task attaches native framework built from ios module to Xcode project
+// (see iosApp directory). Don't run this task directly,
+// Xcode runs this task itself during its build process.
+// Before opening the project from iosApp directory in Xcode,
+// make sure all Gradle infrastructure exists (gradle.wrapper, gradlew).
+/*task copyFramework {
+    def buildType = project.findProperty('kotlin.build.type') ?: 'DEBUG'
+    def target = project.findProperty('kotlin.target') ?: 'ios'
+    dependsOn kotlin.targets."$target".compilations.main.linkTaskName('FRAMEWORK', buildType)
+
+    doLast {
+        def srcFile = kotlin.targets."$target".compilations.main.getBinary('FRAMEWORK', buildType)
+        def targetDir = getProperty('configuration.build.dir')
+        copy {
+            from srcFile.parent
+            into targetDir
+            include 'app.framework/**'
+            include 'app.framework.dSYM'
+        }
+    }
+}*/
+
+
+
