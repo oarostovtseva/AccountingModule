@@ -15,10 +15,11 @@ kotlin {
         final def iOSTarget = System.getenv('SDK_NAME')?.startsWith("iphoneos") \
                               ? presets.iosArm64 : presets.iosX64
 
-        fromPreset(iOSTarget, 'iOS') {
-            compilations.main.outputKinds('FRAMEWORK')
+        fromPreset(iOSTarget, 'ios') {
+            binaries {
+                framework('AccountingKit')
+            }
         }
-
         fromPreset(presets.jvm, 'android')
     }
     sourceSets {
@@ -44,11 +45,12 @@ configurations {
 task packForXCode(type: Sync) {
     final File frameworkDir = new File(buildDir, "xcode-frameworks")
     final String mode = project.findProperty("XCODE_CONFIGURATION")?.toUpperCase() ?: 'DEBUG'
+    final def framework = kotlin.targets.ios.binaries.getFramework("AccountingKit", mode)
 
     inputs.property "mode", mode
-    dependsOn kotlin.targets.iOS.compilations.main.linkTaskName("FRAMEWORK", mode)
+    dependsOn framework.linkTask
 
-    from { kotlin.targets.iOS.compilations.main.getBinary("FRAMEWORK", mode).parentFile }
+    from { framework.outputFile.parentFile }
     into frameworkDir
 
     doLast {
@@ -66,13 +68,13 @@ tasks.build.dependsOn packForXCode
 // Xcode runs this task itself during its build process.
 // Before opening the project from iosApp directory in Xcode,
 // make sure all Gradle infrastructure exists (gradle.wrapper, gradlew).
-/*task copyFramework {
+task copyFramework {
     def buildType = project.findProperty('kotlin.build.type') ?: 'DEBUG'
     def target = project.findProperty('kotlin.target') ?: 'ios'
-    dependsOn kotlin.targets."$target".compilations.main.linkTaskName('FRAMEWORK', buildType)
+    dependsOn kotlin.targets.ios.binaries.getFramework('AccountingKit', buildType)
 
     doLast {
-        def srcFile = kotlin.targets."$target".compilations.main.getBinary('FRAMEWORK', buildType)
+        def srcFile = kotlin.targets.ios.binaries.getFramework('AccountingKit', buildType)
         def targetDir = getProperty('configuration.build.dir')
         copy {
             from srcFile.parent
@@ -81,7 +83,7 @@ tasks.build.dependsOn packForXCode
             include 'app.framework.dSYM'
         }
     }
-}*/
+}
 
 
 
